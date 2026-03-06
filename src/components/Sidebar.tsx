@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ProjectConfig } from '@/types';
-import { FolderOpen, Plus, Trash2, ChevronRight, Edit2, Check, X, MoreVertical, Info, Brain } from 'lucide-react';
+import { FolderOpen, Plus, Trash2, ChevronRight, Edit2, Check, X, MoreVertical, Info, Brain, Map } from 'lucide-react';
 
 interface SidebarProps {
     projects: ProjectConfig[];
@@ -11,6 +11,7 @@ interface SidebarProps {
     onAddProject: () => void;
     onRemoveProject: (id: string) => void;
     onUpdateProject: (id: string, name: string) => void;
+    onShowRoadmap: (id: string) => void;
 }
 
 export default function Sidebar({
@@ -20,6 +21,7 @@ export default function Sidebar({
     onAddProject,
     onRemoveProject,
     onUpdateProject,
+    onShowRoadmap,
 }: SidebarProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -139,7 +141,19 @@ export default function Sidebar({
                                             onClick={(e) => e.stopPropagation()}
                                         />
                                     ) : (
-                                        <span className="sidebar-project-name">{project.name}</span>
+                                        <div className="sidebar-project-name-wrapper">
+                                            <span className="sidebar-project-name">{project.name}</span>
+                                            <button
+                                                className="roadmap-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onShowRoadmap(project.id);
+                                                }}
+                                                title="View Roadmap"
+                                            >
+                                                <Map size={12} />
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 
@@ -183,8 +197,8 @@ export default function Sidebar({
                             </div>
                             {showPathId === project.id && (
                                 <div className="sidebar-project-path-info">
-                                    <div className="path-label">Brain Directory:</div>
-                                    <code>{project.path}/brain</code>
+                                    <div className="path-label">Project Path:</div>
+                                    <code>{project.path}</code>
                                 </div>
                             )}
                         </div>

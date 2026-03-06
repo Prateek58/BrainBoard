@@ -1,7 +1,7 @@
 ---
 title: Fix Login Token Expiry
-status: Done
-type: Feature
+status: To Do
+type: Bug
 team: Backend
 tags:
   - auth

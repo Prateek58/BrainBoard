@@ -1,6 +1,6 @@
 ---
 title: Design Dashboard UI
-status: To Do
+status: Done
 type: Feature
 team: Frontend
 tags:

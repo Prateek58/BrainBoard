@@ -10,7 +10,7 @@ import TaskDetailModal from './TaskDetailModal';
 import AddProjectModal from './AddProjectModal';
 import ConfirmationModal from './ConfirmationModal';
 import SettingsModal from './SettingsModal';
-import { Plus, RefreshCw, Filter, Settings } from 'lucide-react';
+import { Plus, RefreshCw, Filter, Settings, Map } from 'lucide-react';
 
 // Fallback defaults
 const DEFAULT_STATUSES: TaskStatus[] = ['To Do', 'In Progress', 'Done'];
@@ -123,6 +123,18 @@ export default function Board() {
         });
         const data = await res.json();
         setConfig(data);
+    };
+
+    const handleShowRoadmap = (projectId?: string) => {
+        // Find the roadmap task in current tasks
+        const roadmap = tasks.find(t => t.title.toLowerCase().includes('roadmap'));
+        if (roadmap) {
+            setSelectedTask(roadmap);
+        } else if (projectId) {
+            // If not found in current project (maybe loaded other project's roadmap)
+            // For now, only support active project roadmap
+            console.error('Roadmap not found in current project');
+        }
     };
 
     const handleUpdateSettings = async (settings: BrainBoardConfig['settings']) => {
@@ -299,7 +311,11 @@ export default function Board() {
     // Filter and sort tasks per column — now sorted by manual order
     const getColumnTasks = (status: TaskStatus) => {
         return tasks
-            .filter((t) => t.status === status && typeFilters.has(t.type))
+            .filter((t) =>
+                t.status === status &&
+                typeFilters.has(t.type) &&
+                !t.title.toLowerCase().includes('roadmap')
+            )
             .sort((a, b) => a.order - b.order);
     };
 
@@ -312,6 +328,7 @@ export default function Board() {
                 onAddProject={() => setShowAddProjectModal(true)}
                 onRemoveProject={(id) => setProjectToRemove(id)}
                 onUpdateProject={handleUpdateProject}
+                onShowRoadmap={handleShowRoadmap}
             />
 
             <main className="main-content">
@@ -343,6 +360,10 @@ export default function Board() {
                                     ))}
                                 </div>
 
+                                <button className="icon-btn roadmap-header-btn" onClick={() => handleShowRoadmap()} title="Project Roadmap">
+                                    <Map size={16} className="text-accent-primary" />
+                                    <span className="btn-label">Roadmap</span>
+                                </button>
                                 <button className="icon-btn" onClick={() => setShowSettingsModal(true)} title="Settings">
                                     <Settings size={16} />
                                 </button>

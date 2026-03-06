@@ -1,7 +1,7 @@
 ---
 title: User Authentication Logic
-status: Done
-type: Chore
+status: To Do
+type: Feature
 team: Backend
 tags:
   - auth

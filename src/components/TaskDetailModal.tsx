@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { KanbanTask, TaskStatus, TaskType, TaskTypeConfig } from '@/types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
     X, Lightbulb, Bug, Wrench, ChevronDown,
     Circle, PlayCircle, CheckCircle, Save, Trash2,
-    Zap, Star, Shield, Info, Palette
+    Zap, Star, Shield, Info, Palette, Eye, Pencil,
+    Maximize2, Minimize2
 } from 'lucide-react';
 
 interface TaskDetailModalProps {
@@ -37,6 +40,13 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [viewMode, setViewMode] = useState<'write' | 'preview'>('preview');
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    // Resizable content area
+    const contentAreaRef = useRef<HTMLDivElement>(null);
+    const resizeHandleRef = useRef<HTMLDivElement>(null);
+    const [contentHeight, setContentHeight] = useState(400);
 
     const markChanged = () => setHasChanges(true);
 
@@ -52,13 +62,48 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
         });
     };
 
+    // Vertical resize handler
+    const handleResizeStart = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        const startY = e.clientY;
+        const startHeight = contentHeight;
+
+        const handleMove = (moveEvent: MouseEvent) => {
+            const delta = moveEvent.clientY - startY;
+            const newHeight = Math.max(150, Math.min(startHeight + delta, window.innerHeight - 300));
+            setContentHeight(newHeight);
+        };
+
+        const handleUp = () => {
+            document.removeEventListener('mousemove', handleMove);
+            document.removeEventListener('mouseup', handleUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('mouseup', handleUp);
+    }, [contentHeight]);
+
+    // Switch to write mode when clicking on preview
+    const handlePreviewClick = () => {
+        if (viewMode === 'preview') {
+            setViewMode('write');
+        }
+    };
+
     const currentType = taskTypes.find(t => t.name === type) || taskTypes[0];
     const CurrentStatusIcon = STATUS_ICONS[status] || Circle;
     const CurrentTypeIcon = ICON_MAP[currentType?.icon] || Lightbulb;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="task-detail-modal animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div
+                className={`task-detail-modal animate-fade-in ${isExpanded ? 'expanded' : ''}`}
+                onClick={e => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="detail-header">
                     <div className="detail-header-left">
@@ -80,6 +125,13 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                                 Save
                             </button>
                         )}
+                        <button
+                            className="icon-btn-sm"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            title={isExpanded ? 'Minimize' : 'Expand'}
+                        >
+                            {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                        </button>
                         <button className="modal-close" onClick={onClose}>
                             <X size={18} />
                         </button>
@@ -187,18 +239,66 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                     </div>
                 </div>
 
-                {/* Divider */}
-                <div className="detail-divider" />
+                {/* Content Toggle Bar */}
+                <div className="detail-content-toolbar">
+                    <div className="detail-content-tabs">
+                        <button
+                            className={`detail-tab ${viewMode === 'write' ? 'active' : ''}`}
+                            onClick={() => setViewMode('write')}
+                        >
+                            <Pencil size={13} />
+                            Write
+                        </button>
+                        <button
+                            className={`detail-tab ${viewMode === 'preview' ? 'active' : ''}`}
+                            onClick={() => setViewMode('preview')}
+                        >
+                            <Eye size={13} />
+                            Preview
+                        </button>
+                    </div>
+                </div>
 
-                {/* Content (Markdown Editor) */}
-                <div className="detail-content-area">
-                    <textarea
-                        className="detail-markdown-editor"
-                        value={content}
-                        onChange={e => { setContent(e.target.value); markChanged(); }}
-                        placeholder="Write your task description, business rules, checklists here using Markdown..."
-                        spellCheck={false}
-                    />
+                {/* Content Area */}
+                <div
+                    className="detail-content-area"
+                    ref={contentAreaRef}
+                    style={{ height: contentHeight }}
+                >
+                    {viewMode === 'write' ? (
+                        <textarea
+                            className="detail-markdown-editor"
+                            value={content}
+                            onChange={e => { setContent(e.target.value); markChanged(); }}
+                            placeholder="Write your task description, business rules, checklists here using Markdown..."
+                            spellCheck={false}
+                            autoFocus
+                        />
+                    ) : (
+                        <div
+                            className="detail-markdown-preview"
+                            onClick={handlePreviewClick}
+                        >
+                            {content ? (
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {content}
+                                </ReactMarkdown>
+                            ) : (
+                                <p className="detail-preview-empty">
+                                    Click to start writing...
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Resize Handle */}
+                <div
+                    className="detail-resize-handle"
+                    ref={resizeHandleRef}
+                    onMouseDown={handleResizeStart}
+                >
+                    <div className="resize-grip" />
                 </div>
 
                 {/* Footer */}

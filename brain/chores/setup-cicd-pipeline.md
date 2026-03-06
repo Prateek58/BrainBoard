@@ -1,6 +1,6 @@
 ---
 title: Setup CI/CD Pipeline
-status: In Progress
+status: To Do
 type: Chore
 team: DevOps
 tags:

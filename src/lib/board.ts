@@ -4,6 +4,10 @@ import matter from 'gray-matter';
 import { KanbanTask, TaskStatus, TaskType } from '@/types';
 
 export const getBrainFolder = (projectPath: string) => {
+    // If the path already ends with 'brain', don't append it again
+    if (projectPath.endsWith('/brain') || projectPath.endsWith('\\brain')) {
+        return projectPath;
+    }
     return path.join(projectPath, 'brain');
 };
 
