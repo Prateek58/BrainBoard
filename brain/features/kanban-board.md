@@ -3,7 +3,11 @@ title: Kanban Board & Drag-and-Drop
 status: Done
 type: Feature
 team: Frontend
-tags: [core, kanban, dnd]
+tags:
+  - core
+  - kanban
+  - dnd
+order: 3
 ---
 
 ### Context

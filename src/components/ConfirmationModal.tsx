@@ -23,8 +23,8 @@ export default function ConfirmationModal({
 }: ConfirmationModalProps) {
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal confirmation-modal animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
+            <div className="modal confirmation-modal animate-fade-in modal-elevated" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header modal-header-themed">
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <AlertTriangle size={18} style={{ color: variant === 'danger' ? '#ef4444' : '#6366f1' }} />
                         {title}

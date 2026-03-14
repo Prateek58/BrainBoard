@@ -3,7 +3,11 @@ title: Project & Sidebar Management
 status: Done
 type: Feature
 team: Frontend
-tags: [core, project-selector, sidebar]
+tags:
+  - core
+  - project-selector
+  - sidebar
+order: 4
 ---
 
 ### Context

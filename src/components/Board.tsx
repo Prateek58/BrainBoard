@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { KanbanTask, TaskStatus, TaskType, BrainBoardConfig } from '@/types';
 import Sidebar from './Sidebar';
@@ -31,6 +31,12 @@ export default function Board() {
     const [projectToRemove, setProjectToRemove] = useState<string | null>(null);
     const [taskToDelete, setTaskToDelete] = useState<KanbanTask | null>(null);
     const [typeFilters, setTypeFilters] = useState<Set<TaskType>>(new Set());
+    // Autocomplete suggestions
+    const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+    const [teamSuggestions, setTeamSuggestions] = useState<string[]>([]);
+    // Resizable columns
+    const [columnWidths, setColumnWidths] = useState<number[]>([]);
+    const boardRef = useRef<HTMLDivElement>(null);
 
     // Initialize filters once config is loaded
     useEffect(() => {
@@ -44,6 +50,14 @@ export default function Board() {
     const activeProject = config.projects.find((p) => p.id === config.activeProjectId);
     const taskTypes = config.settings?.taskTypes || DEFAULT_TYPES;
     const statuses = config.settings?.statuses || DEFAULT_STATUSES;
+
+    // Initialize column widths evenly
+    useEffect(() => {
+        if (statuses.length > 0 && columnWidths.length !== statuses.length) {
+            const equalWidth = 100 / statuses.length;
+            setColumnWidths(statuses.map(() => equalWidth));
+        }
+    }, [statuses.length]);
 
     // Load config
     const fetchConfig = useCallback(async () => {
@@ -74,13 +88,27 @@ export default function Board() {
         }
     }, [activeProject]);
 
+    // Fetch tag/team suggestions
+    const fetchSuggestions = useCallback(async () => {
+        if (!activeProject) return;
+        try {
+            const res = await fetch(`/api/tasks?projectPath=${encodeURIComponent(activeProject.path)}&action=suggestions`);
+            const data = await res.json();
+            setTagSuggestions(data.tags || []);
+            setTeamSuggestions(data.teams || []);
+        } catch (err) {
+            console.error('Error loading suggestions', err);
+        }
+    }, [activeProject]);
+
     useEffect(() => {
         fetchConfig();
     }, [fetchConfig]);
 
     useEffect(() => {
         fetchTasks();
-    }, [fetchTasks]);
+        fetchSuggestions();
+    }, [fetchTasks, fetchSuggestions]);
 
     // Project operations — now using a proper modal
     const handleAddProject = async (projectPath: string, name: string) => {
@@ -127,7 +155,10 @@ export default function Board() {
 
     const handleShowRoadmap = (projectId?: string) => {
         // Find the roadmap task in current tasks
-        const roadmap = tasks.find(t => t.title.toLowerCase().includes('roadmap'));
+        const roadmap = tasks.find(t =>
+            (t.title && String(t.title).toLowerCase().includes('roadmap')) ||
+            (t.filepath && t.filepath.toLowerCase().includes('roadmap.md'))
+        );
         if (roadmap) {
             setSelectedTask(roadmap);
         } else if (projectId) {
@@ -154,6 +185,7 @@ export default function Board() {
         type: TaskType;
         team: string;
         tags: string[];
+        content?: string;
     }) => {
         if (!activeProject) return;
         await fetch('/api/tasks', {
@@ -163,18 +195,41 @@ export default function Board() {
         });
         setShowNewTaskModal(false);
         fetchTasks();
+        fetchSuggestions(); // Refresh suggestions after creating task
     };
 
     // Full task update from detail modal
-    const handleUpdateTask = async (updates: Partial<KanbanTask> & { content?: string }) => {
-        if (!selectedTask) return;
-        await fetch('/api/tasks', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filepath: selectedTask.filepath, ...updates }),
-        });
-        setSelectedTask(null);
-        fetchTasks();
+    const handleUpdateTask = async (updates: Partial<KanbanTask> & { content?: string }): Promise<boolean> => {
+        if (!selectedTask) return false;
+        try {
+            const res = await fetch('/api/tasks', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filepath: selectedTask.filepath, ...updates }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error('Save failed:', res.status, err);
+                return false;
+            }
+            const data = await res.json();
+            // Optimistically update local task list so changes are visible immediately
+            const newFilepath = data.filepath || selectedTask.filepath;
+            setTasks(prev =>
+                prev.map(t =>
+                    t.id === selectedTask.id
+                        ? { ...t, ...updates, filepath: newFilepath }
+                        : t
+                )
+            );
+            setSelectedTask(null);
+            fetchTasks();
+            fetchSuggestions(); // Refresh suggestions after update
+            return true;
+        } catch (err) {
+            console.error('Save error:', err);
+            return false;
+        }
     };
 
     // Delete task
@@ -314,10 +369,49 @@ export default function Board() {
             .filter((t) =>
                 t.status === status &&
                 typeFilters.has(t.type) &&
-                !t.title.toLowerCase().includes('roadmap')
+                !(t.title && String(t.title).toLowerCase().includes('roadmap')) &&
+                !(t.filepath && t.filepath.toLowerCase().includes('roadmap.md'))
             )
             .sort((a, b) => a.order - b.order);
     };
+
+    // Column resize handler
+    const handleColumnResize = useCallback((index: number, e: React.MouseEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidths = [...columnWidths];
+        const boardEl = boardRef.current;
+        if (!boardEl) return;
+        const boardWidth = boardEl.getBoundingClientRect().width;
+        const minWidthPercent = (180 / boardWidth) * 100; // minimum 180px per column
+
+        const handleMove = (moveEvent: MouseEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const deltaPercent = (deltaX / boardWidth) * 100;
+
+            const newWidths = [...startWidths];
+            const newLeft = startWidths[index] + deltaPercent;
+            const newRight = startWidths[index + 1] - deltaPercent;
+
+            if (newLeft >= minWidthPercent && newRight >= minWidthPercent) {
+                newWidths[index] = newLeft;
+                newWidths[index + 1] = newRight;
+                setColumnWidths(newWidths);
+            }
+        };
+
+        const handleUp = () => {
+            document.removeEventListener('mousemove', handleMove);
+            document.removeEventListener('mouseup', handleUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('mouseup', handleUp);
+    }, [columnWidths]);
 
     return (
         <div className="app-shell">
@@ -383,15 +477,32 @@ export default function Board() {
                 {activeProject ? (
                     <div className="board-area">
                         <DragDropContext onDragEnd={handleDragEnd}>
-                            <div className="kanban-board">
-                                {statuses.map((status) => (
-                                    <KanbanColumn
-                                        key={status}
-                                        status={status}
-                                        tasks={getColumnTasks(status)}
-                                        onTaskClick={(task) => setSelectedTask(task)}
-                                        taskTypes={taskTypes}
-                                    />
+                            <div
+                                className="kanban-board"
+                                ref={boardRef}
+                                style={{
+                                    gridTemplateColumns: columnWidths.length === statuses.length
+                                        ? columnWidths.map(w => `${w}%`).join(' ')
+                                        : `repeat(${statuses.length}, 1fr)`
+                                }}
+                            >
+                                {statuses.map((status, idx) => (
+                                    <div key={status} className="kanban-column-wrapper">
+                                        <KanbanColumn
+                                            status={status}
+                                            tasks={getColumnTasks(status)}
+                                            onTaskClick={(task) => setSelectedTask(task)}
+                                            taskTypes={taskTypes}
+                                        />
+                                        {idx < statuses.length - 1 && (
+                                            <div
+                                                className="column-resize-handle"
+                                                onMouseDown={(e) => handleColumnResize(idx, e)}
+                                            >
+                                                <div className="column-resize-line" />
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </DragDropContext>
@@ -415,6 +526,8 @@ export default function Board() {
                     onClose={() => setShowNewTaskModal(false)}
                     onSubmit={handleCreateTask}
                     taskTypes={taskTypes}
+                    tagSuggestions={tagSuggestions}
+                    teamSuggestions={teamSuggestions}
                 />
             )}
 
@@ -434,6 +547,8 @@ export default function Board() {
                     onDelete={() => setTaskToDelete(selectedTask)}
                     taskTypes={taskTypes}
                     statuses={statuses}
+                    tagSuggestions={tagSuggestions}
+                    teamSuggestions={teamSuggestions}
                 />
             )}
 
@@ -458,11 +573,11 @@ export default function Board() {
                     onConfirm={() => handleDeleteTask(taskToDelete)}
                 />
             )}
-
             {showSettingsModal && (
                 <SettingsModal
                     taskTypes={taskTypes}
                     statuses={statuses}
+                    openRouterApiKey={config.settings?.openRouterApiKey}
                     onClose={() => setShowSettingsModal(false)}
                     onSave={handleUpdateSettings}
                 />

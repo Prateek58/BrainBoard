@@ -28,3 +28,7 @@ If you are an AI assistant and this is a new session:
 2. **Persistence**: Never remove YAML frontmatter.
 3. **Consistency**: Always use the defined types (`Feature`, `Bug`, `Chore`) and statuses configured in `config.json`.
 4. **Clean Code**: Follow the established React/Next.js/Electron patterns found in the codebase.
+
+Note : After every implementation or code change:
+- Append a summary to roadmap.md: Date, what was done, key decisions, next steps.
+- Format: ## YYYY-MM-DD: [Feature] - [Brief desc]

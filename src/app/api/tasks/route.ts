@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllTasks, createNewTask, updateTask, deleteTask, reorderTasks } from '@/lib/board';
+import { getAllTasks, createNewTask, updateTask, deleteTask, reorderTasks, getAllTagsAndTeams } from '@/lib/board';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const projectPath = searchParams.get('projectPath');
+    const action = searchParams.get('action');
 
     if (!projectPath) {
         return NextResponse.json({ error: 'Missing projectPath' }, { status: 400 });
     }
 
     try {
+        // Return autocomplete suggestions for tags and teams
+        if (action === 'suggestions') {
+            const suggestions = getAllTagsAndTeams(projectPath);
+            return NextResponse.json(suggestions);
+        }
         const tasks = getAllTasks(projectPath);
         return NextResponse.json({ tasks });
     } catch (err: any) {
@@ -19,14 +25,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
-    const { projectPath, title, type, team, tags, customAttributes } = body;
+    const { projectPath, title, type, team, tags, customAttributes, content } = body;
 
     if (!projectPath || !title || !type) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     try {
-        const filepath = createNewTask(projectPath, title, type, team, tags, customAttributes);
+        const filepath = createNewTask(projectPath, title, type, team, tags, customAttributes, content);
         return NextResponse.json({ filepath });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
@@ -54,9 +60,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     try {
+        console.log('[PATCH] Saving task:', filepath, 'updates keys:', Object.keys(updates));
         const newPath = updateTask(filepath, updates);
+        console.log('[PATCH] Save OK:', newPath);
         return NextResponse.json({ success: true, filepath: newPath });
     } catch (err: any) {
+        console.error('[PATCH] Save FAILED:', err.message, err.stack);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

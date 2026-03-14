@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { KanbanTask, TaskStatus, TaskTypeConfig } from '@/types';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
-import { CheckCircle, Circle, PlayCircle, HelpCircle } from 'lucide-react';
+import { CheckCircle, Circle, PlayCircle, Clock, Eye, ArchiveRestore } from 'lucide-react';
 
 interface KanbanColumnProps {
     status: TaskStatus;
@@ -17,11 +17,23 @@ const STATUS_ICONS: Record<string, any> = {
     'To Do': Circle,
     'In Progress': PlayCircle,
     'Done': CheckCircle,
+    'Review': Eye,
+    'Blocked': Clock,
+    'Archived': ArchiveRestore,
+};
+
+const STATUS_COLORS: Record<string, string> = {
+    'To Do': 'var(--text-muted)',
+    'In Progress': 'var(--accent-warning)',
+    'Done': 'var(--accent-success)',
+    'Review': 'var(--accent-primary)',
+    'Blocked': 'var(--accent-danger)',
+    'Archived': 'var(--text-muted)',
 };
 
 export default function KanbanColumn({ status, tasks, onTaskClick, taskTypes }: KanbanColumnProps) {
-    const StatusIcon = STATUS_ICONS[status] || HelpCircle;
-    const color = status === 'Done' ? 'var(--accent-success)' : status === 'In Progress' ? 'var(--accent-warning)' : 'var(--text-muted)';
+    const StatusIcon = STATUS_ICONS[status] || Circle;
+    const color = STATUS_COLORS[status] || 'var(--accent-primary)';
 
     // Fix: @hello-pangea/dnd needs client-only rendering to avoid SSR hydration mismatch
     const [mounted, setMounted] = useState(false);

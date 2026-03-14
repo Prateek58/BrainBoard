@@ -102,7 +102,8 @@ export const createNewTask = (
     type: TaskType,
     team?: string,
     tags: string[] = [],
-    customAttributes: Record<string, string> = {}
+    customAttributes: Record<string, string> = {},
+    initialContent?: string
 ) => {
     ensureBrainStructure(projectPath);
 
@@ -114,10 +115,20 @@ export const createNewTask = (
         fs.mkdirSync(folder, { recursive: true });
     }
 
-    const filepath = path.join(folder, `${safeFilename}.md`);
+    // Prevent duplicate filenames — append a numeric suffix if file already exists
+    let finalFilename = safeFilename;
+    let filepath = path.join(folder, `${finalFilename}.md`);
+    let counter = 2;
+    while (fs.existsSync(filepath)) {
+        finalFilename = `${safeFilename}-${counter}`;
+        filepath = path.join(folder, `${finalFilename}.md`);
+        counter++;
+    }
 
     let contentTemplate = '';
-    if (type === 'Feature') {
+    if (initialContent !== undefined && initialContent.trim() !== '') {
+        contentTemplate = initialContent;
+    } else if (type === 'Feature') {
         contentTemplate = `### Context\nAdd context here.\n\n### Business Rules\n\`\`\`gherkin\nFeature: ${title}\n  Scenario: Default setup\n    Given ...\n    When ...\n    Then ...\n\`\`\``;
     } else {
         contentTemplate = `### Context\nAdd context here.\n\n### Implementation Tasks\n- [ ] Task 1\n- [ ] Task 2`;
@@ -127,6 +138,7 @@ export const createNewTask = (
         title,
         status: 'To Do',
         type,
+        order: -Date.now(),
         ...(team ? { team } : {}),
         ...(tags.length > 0 ? { tags } : {}),
         ...customAttributes
@@ -135,6 +147,21 @@ export const createNewTask = (
     const fullContent = matter.stringify(contentTemplate, data);
     fs.writeFileSync(filepath, fullContent, 'utf-8');
     return filepath;
+};
+
+// Collect all existing tags and teams from tasks (for autocomplete)
+export const getAllTagsAndTeams = (projectPath: string): { tags: string[]; teams: string[] } => {
+    const tasks = getAllTasks(projectPath);
+    const tagSet = new Set<string>();
+    const teamSet = new Set<string>();
+    for (const task of tasks) {
+        if (task.tags) task.tags.forEach(t => tagSet.add(t));
+        if (task.team) teamSet.add(task.team);
+    }
+    return {
+        tags: Array.from(tagSet).sort(),
+        teams: Array.from(teamSet).sort(),
+    };
 };
 
 export const updateTask = (
@@ -154,24 +181,39 @@ export const updateTask = (
     const rawContent = fs.readFileSync(filepath, 'utf-8');
     const { data, content } = matter(rawContent);
 
+    // Capture original type BEFORE mutating data, to detect type changes for file-move
+    const originalType = data.type as TaskType;
+
     // Update frontmatter fields
     if (updates.title !== undefined) data.title = updates.title;
     if (updates.status !== undefined) data.status = updates.status;
     if (updates.type !== undefined) data.type = updates.type;
     if (updates.order !== undefined) data.order = updates.order;
-    if (updates.team !== undefined) data.team = updates.team || undefined;
-    if (updates.tags !== undefined) data.tags = updates.tags.length > 0 ? updates.tags : undefined;
+    if (updates.team !== undefined) {
+        if (updates.team) { data.team = updates.team; } else { delete data.team; }
+    }
+    if (updates.tags !== undefined) {
+        if (updates.tags && updates.tags.length > 0) { data.tags = updates.tags; } else { delete data.tags; }
+    }
     if (updates.customAttributes) {
         Object.assign(data, updates.customAttributes);
     }
 
     // Use updated content or keep existing
     const newContent = updates.content !== undefined ? updates.content : content;
+
+    // Sanitize: remove any keys with undefined values (js-yaml cannot serialize undefined)
+    for (const key of Object.keys(data)) {
+        if (data[key] === undefined) {
+            delete data[key];
+        }
+    }
+
     const updatedFile = matter.stringify(newContent, data);
     fs.writeFileSync(filepath, updatedFile, 'utf-8');
 
     // If type changed, move the file to the correct directory
-    if (updates.type && updates.type !== data.type) {
+    if (updates.type && updates.type !== originalType) {
         const brainDir = path.dirname(path.dirname(filepath));
         const newDir = path.join(brainDir, updates.type.toLowerCase() + 's');
         if (!fs.existsSync(newDir)) {

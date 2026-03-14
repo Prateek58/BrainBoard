@@ -760,10 +760,56 @@ textarea::placeholder {
 
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 0;
   min-height: 100%;
   height: 100%;
+}
+
+.kanban-column-wrapper {
+  display: flex;
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.kanban-column-wrapper>.kanban-column {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Column Resize Handle */
+.column-resize-handle {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.column-resize-handle:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.column-resize-line {
+  width: 2px;
+  height: 32px;
+  border-radius: 1px;
+  background: var(--border-light);
+  transition: all 0.2s ease;
+}
+
+.column-resize-handle:hover .column-resize-line {
+  height: 60px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
 }
 
 .kanban-column {
@@ -968,8 +1014,8 @@ textarea::placeholder {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -984,6 +1030,22 @@ textarea::placeholder {
   max-width: calc(100vw - 40px);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Elevated modal — makes dialogs stand out from the background */
+.modal-elevated {
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.08),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+/* Themed header — gradient top border + subtle background */
+.modal-header-themed {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.06) 0%, transparent 100%);
+  border-top: 2px solid var(--accent-primary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .modal-header {
@@ -1070,6 +1132,55 @@ textarea::placeholder {
   gap: 10px;
   justify-content: flex-end;
   padding-top: 8px;
+}
+
+/* New Task Modal — wider to fit description */
+.new-task-modal {
+  width: 600px;
+  max-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.new-task-modal .modal-form {
+  overflow-y: auto;
+}
+
+.new-task-description {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 10px 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.new-task-description:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+  outline: none;
+}
+
+.new-task-description::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.form-label-hint {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 2px;
 }
 
 /* =========================================================
@@ -1835,6 +1946,20 @@ textarea::placeholder {
   color: var(--text-primary);
 }
 
+
+/* Save Error Banner */
+.detail-save-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-danger);
+  background: rgba(239, 68, 68, 0.08);
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+}
+
 /* Footer */
 .detail-footer {
   display: flex;
@@ -2010,6 +2135,160 @@ textarea::placeholder {
 }
 
 /* =========================================================
+   TAG INPUT (Notion-like autocomplete)
+   ========================================================= */
+
+.tag-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.tag-input-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+  min-height: 34px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: text;
+  transition: all 0.15s ease;
+  align-items: center;
+}
+
+.tag-input-wrapper:hover {
+  border-color: var(--border-light);
+}
+
+.tag-input-wrapper:focus-within {
+  background: var(--bg-input);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.tag-input-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 4px;
+  white-space: nowrap;
+  animation: fadeIn 0.15s ease;
+}
+
+.tag-input-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  border-radius: 2px;
+  color: var(--accent-primary);
+  opacity: 0.6;
+  transition: all 0.1s ease;
+}
+
+.tag-input-chip-remove:hover {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.tag-input-field {
+  flex: 1;
+  min-width: 80px;
+  border: none !important;
+  background: transparent !important;
+  padding: 2px 4px !important;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tag-input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.tag-input-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.12s ease;
+}
+
+.tag-input-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  width: 100%;
+  text-align: left;
+  transition: all 0.1s ease;
+}
+
+.tag-input-dropdown-item:hover,
+.tag-input-dropdown-item.highlighted {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+.tag-input-dropdown-item.create-new {
+  border-top: 1px solid var(--border-light);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.tag-create-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tag-create-value {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* Danger variant for confirmation modals */
+.confirmation-modal.modal-elevated {
+  border-color: rgba(239, 68, 68, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.08),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+.confirmation-modal .modal-header-themed {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.06) 0%, transparent 100%);
+  border-top: 2px solid var(--accent-danger);
+}
+
+/* New Task modal uses primary-themed header */
+.new-task-modal.modal-elevated {
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* =========================================================
    RESPONSIVE
    ========================================================= */
 
@@ -2019,8 +2298,12 @@ textarea::placeholder {
   }
 
   .kanban-board {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     gap: 12px;
+  }
+
+  .column-resize-handle {
+    display: none;
   }
 
   .task-detail-modal {

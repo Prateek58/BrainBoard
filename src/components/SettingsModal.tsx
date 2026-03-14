@@ -7,8 +7,9 @@ import { TaskTypeConfig, TaskStatus } from '@/types';
 interface SettingsModalProps {
     taskTypes: TaskTypeConfig[];
     statuses: TaskStatus[];
+    openRouterApiKey?: string;
     onClose: () => void;
-    onSave: (settings: { taskTypes: TaskTypeConfig[]; statuses: TaskStatus[] }) => void;
+    onSave: (settings: { taskTypes: TaskTypeConfig[]; statuses: TaskStatus[]; openRouterApiKey?: string }) => void;
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -26,10 +27,11 @@ const COLOR_OPTIONS = [
     { name: 'Gray', value: 'var(--text-muted)' },
 ];
 
-export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: initialStatuses, onClose, onSave }: SettingsModalProps) {
+export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: initialStatuses, openRouterApiKey: initialApiKey, onClose, onSave }: SettingsModalProps) {
     const [taskTypes, setTaskTypes] = useState<TaskTypeConfig[]>([...initialTaskTypes]);
     const [statuses, setStatuses] = useState<TaskStatus[]>([...initialStatuses]);
-    const [activeTab, setActiveTab] = useState<'types' | 'statuses'>('types');
+    const [openRouterApiKey, setApiKey] = useState(initialApiKey || '');
+    const [activeTab, setActiveTab] = useState<'types' | 'statuses' | 'ai'>('types');
 
     const handleAddType = () => {
         const newType: TaskTypeConfig = {
@@ -80,8 +82,8 @@ export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: i
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal settings-modal animate-fade-in" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
+            <div className="modal settings-modal animate-fade-in modal-elevated" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header modal-header-themed">
                     <h3>Application Settings</h3>
                     <button className="modal-close" onClick={onClose}>
                         <X size={18} />
@@ -100,6 +102,12 @@ export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: i
                         onClick={() => setActiveTab('statuses')}
                     >
                         Kanban Columns
+                    </button>
+                    <button
+                        className={`settings-tab ${activeTab === 'ai' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('ai')}
+                    >
+                        AI Settings
                     </button>
                 </div>
 
@@ -179,7 +187,7 @@ export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: i
                                 ))}
                             </div>
                         </div>
-                    ) : (
+                    ) : activeTab === 'statuses' ? (
                         <div className="settings-section">
                             <div className="settings-section-header">
                                 <p className="settings-description">
@@ -206,12 +214,33 @@ export default function SettingsModal({ taskTypes: initialTaskTypes, statuses: i
                                 ))}
                             </div>
                         </div>
+                    ) : (
+                        <div className="settings-section">
+                            <div className="settings-section-header">
+                                <p className="settings-description">
+                                    Configure AI settings to auto-refine task descriptions utilizing OpenRouter models.
+                                </p>
+                            </div>
+                            <div className="settings-item-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px', background: 'transparent', border: 'none', padding: 0 }}>
+                                <label style={{ fontSize: '13px', fontWeight: 600 }}>OpenRouter API Key</label>
+                                <input
+                                    type="password"
+                                    value={openRouterApiKey}
+                                    onChange={e => setApiKey(e.target.value)}
+                                    placeholder="sk-or-v1-..."
+                                    style={{ width: '100%', maxWidth: '100%' }}
+                                />
+                                <p className="settings-description" style={{ marginTop: '0', fontSize: '11px' }}>
+                                    Your API key is stored securely in your local configuration. Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{color: 'var(--accent-primary)'}}>openrouter.ai</a>.
+                                </p>
+                            </div>
+                        </div>
                     )}
                 </div>
 
                 <div className="modal-actions" style={{ padding: '20px 24px', borderTop: '1px solid var(--border-light)' }}>
                     <button className="btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn-primary" onClick={() => onSave({ taskTypes, statuses })}>
+                    <button className="btn-primary" onClick={() => onSave({ taskTypes, statuses, openRouterApiKey })}>
                         Save Settings
                     </button>
                 </div>

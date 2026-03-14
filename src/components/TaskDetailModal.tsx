@@ -8,16 +8,19 @@ import {
     X, Lightbulb, Bug, Wrench, ChevronDown,
     Circle, PlayCircle, CheckCircle, Save, Trash2,
     Zap, Star, Shield, Info, Palette, Eye, Pencil,
-    Maximize2, Minimize2
+    Maximize2, Minimize2, Loader2, AlertCircle, Check
 } from 'lucide-react';
+import TagInput from './TagInput';
 
 interface TaskDetailModalProps {
     task: KanbanTask;
     onClose: () => void;
-    onSave: (updates: Partial<KanbanTask> & { content?: string }) => void;
+    onSave: (updates: Partial<KanbanTask> & { content?: string }) => Promise<boolean>;
     onDelete?: () => void;
     taskTypes: TaskTypeConfig[];
     statuses: TaskStatus[];
+    tagSuggestions: string[];
+    teamSuggestions: string[];
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -30,18 +33,20 @@ const STATUS_ICONS: Record<string, any> = {
     'Done': CheckCircle,
 };
 
-export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskTypes, statuses }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskTypes, statuses, tagSuggestions, teamSuggestions }: TaskDetailModalProps) {
     const [title, setTitle] = useState(task.title);
     const [status, setStatus] = useState<TaskStatus>(task.status);
     const [type, setType] = useState<TaskType>(task.type);
-    const [team, setTeam] = useState(task.team || '');
-    const [tagsInput, setTagsInput] = useState(task.tags.join(', '));
+    const [team, setTeam] = useState<string[]>(task.team ? [task.team] : []);
+    const [tags, setTags] = useState<string[]>(task.tags || []);
     const [content, setContent] = useState(task.content.trim());
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const [viewMode, setViewMode] = useState<'write' | 'preview'>('preview');
     const [isExpanded, setIsExpanded] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [isEnhancing, setIsEnhancing] = useState(false);
 
     // Resizable content area
     const contentAreaRef = useRef<HTMLDivElement>(null);
@@ -50,16 +55,22 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
 
     const markChanged = () => setHasChanges(true);
 
-    const handleSave = () => {
-        const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-        onSave({
+    const handleSave = async () => {
+        if (saveStatus === 'saving') return;
+        setSaveStatus('saving');
+        const success = await onSave({
             title: title.trim(),
             status,
             type,
-            team: team.trim() || undefined,
+            team: team[0] || undefined,
             tags,
             content,
         });
+        if (success) {
+            setSaveStatus('saved');
+        } else {
+            setSaveStatus('error');
+        }
     };
 
     // Vertical resize handler
@@ -101,11 +112,11 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className={`task-detail-modal animate-fade-in ${isExpanded ? 'expanded' : ''}`}
+                className={`task-detail-modal animate-fade-in modal-elevated ${isExpanded ? 'expanded' : ''}`}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="detail-header">
+                <div className="detail-header modal-header-themed">
                     <div className="detail-header-left">
                         <div
                             className="detail-type-indicator"
@@ -208,11 +219,12 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                     <div className="detail-prop-row">
                         <span className="detail-prop-label">Team</span>
                         <div className="detail-prop-value">
-                            <input
-                                className="detail-inline-input"
-                                value={team}
-                                onChange={e => { setTeam(e.target.value); markChanged(); }}
+                            <TagInput
+                                values={team}
+                                onChange={(vals) => { setTeam(vals); markChanged(); }}
+                                suggestions={teamSuggestions}
                                 placeholder="Add team..."
+                                singleValue
                             />
                         </div>
                     </div>
@@ -221,11 +233,11 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                     <div className="detail-prop-row">
                         <span className="detail-prop-label">Tags</span>
                         <div className="detail-prop-value">
-                            <input
-                                className="detail-inline-input"
-                                value={tagsInput}
-                                onChange={e => { setTagsInput(e.target.value); markChanged(); }}
-                                placeholder="tag1, tag2, tag3..."
+                            <TagInput
+                                values={tags}
+                                onChange={(vals) => { setTags(vals); markChanged(); }}
+                                suggestions={tagSuggestions}
+                                placeholder="Add tags..."
                             />
                         </div>
                     </div>
@@ -240,7 +252,7 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                 </div>
 
                 {/* Content Toggle Bar */}
-                <div className="detail-content-toolbar">
+                <div className="detail-content-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="detail-content-tabs">
                         <button
                             className={`detail-tab ${viewMode === 'write' ? 'active' : ''}`}
@@ -257,6 +269,48 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                             Preview
                         </button>
                     </div>
+                    <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+                        onClick={async () => {
+                            if (isEnhancing) return;
+                            setIsEnhancing(true);
+                            try {
+                                const res = await fetch('/api/ai', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ text: content, type, title })
+                                });
+                                const data = await res.json().catch(() => null);
+                                if (!data) {
+                                    throw new Error('Invalid JSON response from server');
+                                }
+                                if (!res.ok) {
+                                    throw new Error(data.error || 'Server returned an error');
+                                }
+                                if (data.error) {
+                                    alert(data.error);
+                                } else if (data.refinedText) {
+                                    setContent(data.refinedText);
+                                    markChanged();
+                                    setViewMode('preview');
+                                }
+                            } catch (err: any) {
+                                console.error('AI Error:', err);
+                                alert(err.message || 'Failed to refine text. Ensure your API key is correct and you have enough credits.');
+                            } finally {
+                                setIsEnhancing(false);
+                            }
+                        }}
+                        disabled={isEnhancing}
+                    >
+                        {isEnhancing ? (
+                            <><Loader2 size={12} className="spin" /> Enhancing...</>
+                        ) : (
+                            <><Zap size={12} /> ✨ Enhance with AI</>
+                        )}
+                    </button>
                 </div>
 
                 {/* Content Area */}
@@ -301,6 +355,14 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                     <div className="resize-grip" />
                 </div>
 
+                {/* Save Error Banner */}
+                {saveStatus === 'error' && (
+                    <div className="detail-save-error">
+                        <AlertCircle size={14} />
+                        <span>Failed to save. Please try again.</span>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <div className="detail-footer">
                     {onDelete && (
@@ -311,9 +373,18 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete, taskT
                     )}
                     <div className="detail-footer-right">
                         <button className="btn-secondary" onClick={onClose}>Cancel</button>
-                        <button className="btn-primary" onClick={handleSave} disabled={!title.trim()}>
-                            <Save size={14} />
-                            Save Changes
+                        <button
+                            className="btn-primary"
+                            onClick={handleSave}
+                            disabled={!title.trim() || saveStatus === 'saving'}
+                        >
+                            {saveStatus === 'saving' ? (
+                                <><Loader2 size={14} className="spin" /> Saving...</>
+                            ) : saveStatus === 'saved' ? (
+                                <><Check size={14} /> Saved!</>
+                            ) : (
+                                <><Save size={14} /> Save Changes</>
+                            )}
                         </button>
                     </div>
                 </div>

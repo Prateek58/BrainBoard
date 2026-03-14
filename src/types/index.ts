@@ -34,5 +34,6 @@ export interface BrainBoardConfig {
     settings?: {
         taskTypes: TaskTypeConfig[];
         statuses: TaskStatus[];
+        openRouterApiKey?: string;
     }
 }

@@ -3,7 +3,10 @@ title: Dynamic Settings & Workflow
 status: Done
 type: Feature
 team: Frontend
-tags: [settings, customization]
+tags:
+  - settings
+  - customization
+order: 5
 ---
 
 ### Context

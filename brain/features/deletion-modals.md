@@ -3,7 +3,11 @@ title: Deletion Modals (Custom Confirmation)
 status: Done
 type: Feature
 team: Frontend
-tags: [ui, modal, safety]
+tags:
+  - ui
+  - modal
+  - safety
+order: 2
 ---
 
 ### Context

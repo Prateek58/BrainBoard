@@ -118,8 +118,8 @@ export default function AddProjectModal({ onClose, onSubmit, existingProjects }:
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="add-project-modal animate-fade-in" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
+            <div className="add-project-modal animate-fade-in modal-elevated" onClick={e => e.stopPropagation()}>
+                <div className="modal-header modal-header-themed">
                     <h3>
                         <FolderOpen size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
                         Add Project

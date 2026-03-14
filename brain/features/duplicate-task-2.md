@@ -1,18 +1,15 @@
 ---
-title: test1
-status: In Progress
-type: Bug
-team: teat
-tags:
-  - testtag
-order: 0
+title: Duplicate Task
+status: To Do
+type: Feature
+order: 4
 ---
 ### Context
 Add context here.
 
 ### Business Rules
 ```gherkin
-Feature: test1
+Feature: Untitled
   Scenario: Default setup
     Given ...
     When ...
